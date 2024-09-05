@@ -13,6 +13,24 @@ type Element = u16;
 const EXTENSION_DEGREE: i32 = 16;
 const prim_poly : u32 = 0x1002d;
 //const reducing_poly : u32 = (prim_poly as u64) & 0x1ffff as u64;
+static mut GF2_to_16 : Option<__m128i> = None;
+
+
+use lazy_static::lazy_static;
+lazy_static! {
+    static ref  reduction_mask : __m128i = {
+        unsafe {
+            #[allow(overflowing_literals)]
+            _mm_setr_epi8(0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x0B, 0x0A, 0x80, 0x80, 0x03, 0x02)
+        }
+    };
+    static ref double_prim_poly_m : __m128i = {
+        unsafe {
+            _mm_set_epi32(0, 0, prim_poly as i32, prim_poly as i32)
+        }
+    };
+}
+
 
 const G2P16_MUL_GROUP_ORDER: isize = 65535;
 /// The field GF(2^16).
@@ -97,53 +115,85 @@ pub fn sub(a: u16, b: u16) -> u16 {
 /// Multiply two elements.
 #[target_feature(enable = "sse2", enable = "sse4.1", enable = "pclmulqdq")]
 unsafe fn mul(a: u16, b: u16) -> u16 {
+    //println!("mul {:x?} {:x?}", a, b);
+    let a_m = _mm_insert_epi32 (_mm_setzero_si128(), a as i32, 0);
+    let b_m = _mm_insert_epi32 (a_m, b as i32, 0);
+    
+    let prim_poly_m = _mm_set_epi32(0, 0, 0, prim_poly as i32);
 
-        let a_m = _mm_insert_epi32 (_mm_setzero_si128(), a as i32, 0);
-        let b_m = _mm_insert_epi32 (a_m, b as i32, 0);
-
-        let prim_poly_m = _mm_set_epi32(0, 0, 0, prim_poly as i32);
-
-        // /* Do the initial multiply */
-  
-        let mut result = _mm_clmulepi64_si128 (a_m, b_m, 0);
-
-        //println!("{} {} {:?} {:?} {:?}", a,b, a_m, b_m, result);
+    // /* Do the initial multiply */
+    
+    let mut result = _mm_clmulepi64_si128 (a_m, b_m, 0);
+    //println!("mul {:x?} {:x?} {:x?}", a_m, b_m, result);
 
     let mut w = _mm_clmulepi64_si128 (prim_poly_m, _mm_srli_si128 (result, 2), 0);
-        result = _mm_xor_si128 (result, w);
-        w = _mm_clmulepi64_si128 (prim_poly_m, _mm_srli_si128 (result, 2), 0);
-        result = _mm_xor_si128 (result, w);
+    result = _mm_xor_si128 (result, w);
+    //println!("red 1 {:x?} {:x?}",w, result);
 
-        /* Extracts 32 bit value from result. */
-        return _mm_extract_epi32(result, 0) as u16
+    w = _mm_clmulepi64_si128 (prim_poly_m, _mm_srli_si128 (result, 2), 0);
+    result = _mm_xor_si128 (result, w);
+    //println!("red 2 {:x?} {:x?}",w, result);
+
+    /* Extracts 32 bit value from result. */
+    //println!("res: {:x?}",_mm_extract_epi32(result, 0) as u16);
+
+    return _mm_extract_epi32(result, 0) as u16
 
 }
 
-#[target_feature(enable = "sse2", enable = "sse4.1", enable = "pclmulqdq")]
+#[target_feature(enable = "sse2", enable = "sse3", enable = "sse4.1", enable = "pclmulqdq")]
 unsafe fn two_sim_muls(c: u16, input: &[u16], out: &mut [u16]) {
-
-    let a_b_m = _mm_set_epi32(0, input[1] as i32, 0, input[0] as i32);
-    let c_c_m = _mm_set_epi32(0, c as i32, 0, c as i32);
-
-    let double_prim_poly_m = _mm_set_epi32(0, prim_poly as i32, 0, prim_poly as i32);
+    //println!("two-mul c: {:x?} a: {:x?} b: {:x?}", c, input[0], input[1]);
+    //println!("two-mul c: {:x} a: {:x} b: {:x}", c, input[0], input[1]);
+    let a_b_m = _mm_set_epi32(0, 0, input[1] as i32, input[0] as i32);
+    let c_c_m = _mm_set_epi32(0, 0, c as i32, c as i32);
 
     let mut result = _mm_clmulepi64_si128(c_c_m, a_b_m, 0);
-
-    //println!("{} {} {:?} {:?} {:?}", a,b, a_m, b_m, result);
+    //println!("mul c_c: {:x?} a_b: {:x?} res: {:x?}", c_c_m, a_b_m, result);
+    
+    ////println!("{} {} {:x?} {:x?} {:x?}", a,b, a_m, b_m, result);
 
     //we need to zero the second 32bit word before every shift not to interfere with the operation.
-    let mut result = _mm_insert_epi32 (result, 0, 1);
-    let mut w = _mm_clmulepi64_si128 (double_prim_poly_m, _mm_srli_si128 (result, 2), 0);
+    // result = _mm_insert_epi32 (result, 0, 1);
+    // //println!("zero 1 {:x?}",result);
+
+    // //barret 
+    // let mut shifted_result = _mm_srli_si128 (result, 2);
+    // //println!("shift 2 {:x?}", shifted_result);
+
+    // //we need to copy bit 64-95 to 32-63. there should be a simd way of doing this without extarciting
+    // //let mut result_0_64 = _mm_insert_epi32 (shifted_result, _mm_extract_epi32(shifted_result, 2), 1);
+    //  let mut result_0_64 = _mm_shuffle_epi32 (shifted_result, 0b11101000);
+    //println!("moved result 1 {:x?}", result_0_64);
+
+    //0x808080808080808080800B0A80800302u128
+    let mut result_0_64 = _mm_shuffle_epi8 (result, *reduction_mask);
+    
+    let mut w = _mm_clmulepi64_si128 (*double_prim_poly_m, result_0_64, 0);
     result = _mm_xor_si128 (result, w);
+    //println!("red 1 w: {:x?} res: {:x?}",w, result);
 
     //we need to zero the second 32bit words before every shift not to interfere with the operation.
-    let mut result = _mm_insert_epi32 (result, 0, 1);
-    w = _mm_clmulepi64_si128 (double_prim_poly_m, _mm_srli_si128 (result, 2), 0);
+    // result = _mm_insert_epi32 (result, 0, 1);
+    // //println!("zero 2 {:x?}",result);
+
+    // let shifted_result = _mm_srli_si128 (result, 2);
+    // //println!("shift 2 {:x?}", shifted_result);
+
+    // //we need to copy bit 64-95 to 32-63. there should be a simd way of doing this without extarciting
+    // //result_0_64  = _mm_insert_epi32 (shifted_result, _mm_extract_epi32(shifted_result, 2), 1);
+    // result_0_64 = _mm_shuffle_epi32 (shifted_result, 0b11101000);
+    //println!("moved result 2 {:x?}", result_0_64);
+    result_0_64 = _mm_shuffle_epi8 (result, *reduction_mask);
+    w = _mm_clmulepi64_si128 (*double_prim_poly_m, result_0_64, 0);
     result = _mm_xor_si128 (result, w);
+    //println!("red 2 w: {:x?} res: {:x?}",w, result);
 
     /* Extracts 32 bit value from result. */
     out[0] =  _mm_extract_epi32(result, 0) as u16;
     out[1] = _mm_extract_epi32(result, 2) as u16;
+    //println!("res o1: {:x?} o2: {:x?}",out[0], out[1]);
+
 }
 
 //     // gf.multiply_region.w32(&gf, r1, r2, a, 16, 0);
@@ -303,13 +353,37 @@ mod tests {
                 mul(c,a) == output[0] && mul(c,b) == output[1]
             }
             
-
         }
           
     }
 
    #[test]
    fn lots_of_mul() {
+        use rand::Rng;
+
+        let mut rng = rand::thread_rng();
+
+       let mut input_array : [u16; 2] =  [rng.gen::<u16>(), rng.gen::<u16>()];
+       let mut output_array = [0, 0];
+       let mut c = rng.gen();
+
+        const number_of_mul: u32 = 500000000;
+
+       unsafe {
+        for x in 0..number_of_mul {
+            two_sim_muls(c, &input_array, &mut output_array);
+            c = input_array[0];
+            input_array[0] = input_array[1];
+            input_array[1] = output_array[0];
+
+        }
+           println!("{}", output_array[0]);
+       }
+
+   }
+
+   #[test]
+   fn lots_of_single_mul() {
         use rand::Rng;
 
         let mut rng = rand::thread_rng();
