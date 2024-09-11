@@ -10,19 +10,23 @@ use std::ops::{Add, Div, Mul, Sub};
 
 // the irreducible polynomial used as a modulus for the field.
 // it is in LE as it makes more sense
-// x^{16} + x^5 + x^3 + x^2 + 1 
+// x^{16} + x^5 + x^3 + x^2 + 1
 // 2^0 + 2^2 + 2^3 + 2^5 = 45
 //                          6  5  4  3  2  1  0  9  8  7  6  5  4  3  2  1
 //                         [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1];
 const EXT_POLY: [u8; 3] = [45, 0, 1];
-const SHIFTABLE_EXT_POLY : u32 = 65536 + 45;
+const SHIFTABLE_EXT_POLY: u32 = 65536 + 45;
 
 //Cantor basis in little endian is as follows:
 const CANTOR_BASIS: [u16; 16] = [
-    0x0001, 0xACCA, 0x3C0E, 0x163E, 0xC582, 0xED2E, 0x914C, 0x4012, 0x6C98, 0x10D8, 0x6A72, 0xB900, 0xFDB8, 0xFB34, 0xFF38, 0x991E,
+    0x0001, 0xACCA, 0x3C0E, 0x163E, 0xC582, 0xED2E, 0x914C, 0x4012, 0x6C98, 0x10D8, 0x6A72, 0xB900,
+    0xFDB8, 0xFB34, 0xFF38, 0x991E,
 ];
 
-const STANDARD_BASIS_IN_CANTOR: [u16; 16] = [0x0001, 0x4690, 0x65D8, 0x62D0, 0x5734, 0x45F0, 0x53B8, 0x1E38, 0x7CAE, 0x4E38, 0x6708, 0xC25C, 0x7A64, 0x9EAC, 0x1124, 0x523A];
+const STANDARD_BASIS_IN_CANTOR: [u16; 16] = [
+    0x0001, 0x4690, 0x65D8, 0x62D0, 0x5734, 0x45F0, 0x53B8, 0x1E38, 0x7CAE, 0x4E38, 0x6708, 0xC25C,
+    0x7A64, 0x9EAC, 0x1124, 0x523A,
+];
 
 /// The field GF(2^16)
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
@@ -59,7 +63,7 @@ impl crate::Field for Field {
     }
 
     fn nth_internal(n: usize) -> [u8; 2] {
-        [n as u8, (n >> 8) as u8, ]
+        [n as u8, (n >> 8) as u8]
     }
 }
 
@@ -103,21 +107,18 @@ impl Element {
             self
         }
     }
-   
 
     // // reduces from some polynomial with degree <= 30.
     // #[inline]
     fn reduce_from_poly(mut x: u32) -> Self {
         for i in 0..16 {
-            if (x & (1u32 << (31 - i)))!=0 {
+            if (x & (1u32 << (31 - i))) != 0 {
                 x ^= SHIFTABLE_EXT_POLY << (15 - i);
             }
         }
 
         Element::from_standard(x as u16)
-        
     }
-    
 }
 
 impl From<[u8; 2]> for Element {
@@ -161,7 +162,7 @@ impl Mul for Element {
     //
     // For this we need polynomial arithmetic, but somebody has implemented that
     fn mul(self, rhs: Self) -> Element {
-        //multiply as polynomials        
+        //multiply as polynomials
         let mul_result = Element::poly_mul(self.into_standard(), rhs.into_standard());
         Element::reduce_from_poly(mul_result)
     }
@@ -177,9 +178,8 @@ impl Div for Element {
 
 //Into u16 from little Endian
 impl Into<u16> for Element {
-        
     fn into(self) -> u16 {
-        let mut result : u16 = self.0[1] as u16;
+        let mut result: u16 = self.0[1] as u16;
         result <<= 8;
         result += self.0[0] as u16;
 
@@ -189,19 +189,17 @@ impl Into<u16> for Element {
 
 //From u16 into little Endian
 impl From<u16> for Element {
-        
-    fn from(element_as_u16 :u16) -> Element {
+    fn from(element_as_u16: u16) -> Element {
         [element_as_u16 as u8, (element_as_u16 >> 8) as u8].into()
     }
 }
-    
-impl Element {
 
+impl Element {
     fn into_standard(self) -> u16 {
-        let mut result : u16 = 0;
+        let mut result: u16 = 0;
         for i in 0..8 {
-            if self.0[0] & (1 << i) != 0{
-                result ^= CANTOR_BASIS[i] ;
+            if self.0[0] & (1 << i) != 0 {
+                result ^= CANTOR_BASIS[i];
             }
 
             if self.0[1] & (1 << i) != 0 {
@@ -210,24 +208,22 @@ impl Element {
         }
 
         result
-
     }
 
     fn from_standard(standard_element: u16) -> Element {
-        let mut result : u16 = 0;
+        let mut result: u16 = 0;
         for i in 0..16 {
-            if standard_element & (1 << i) != 0{
+            if standard_element & (1 << i) != 0 {
                 result ^= STANDARD_BASIS_IN_CANTOR[i];
             }
         }
 
         result.into()
-
     }
-    
-    fn poly_mul(lhs: u16 , mut rhs: u16) -> u32 {
+
+    fn poly_mul(lhs: u16, mut rhs: u16) -> u32 {
         let mut result: u32 = 0;
-        let shiftable_lhs:u32 =  lhs as u32;
+        let shiftable_lhs: u32 = lhs as u32;
         for i in 0..16 {
             // Check if the current bit in rhs is set
             if (rhs & 1) != 0 {
@@ -238,7 +234,7 @@ impl Element {
         result
     }
 
-    fn poly_mul_u32_no_carry(mut lhs: u32, mut rhs: u32) -> u32 {     
+    fn poly_mul_u32_no_carry(mut lhs: u32, mut rhs: u32) -> u32 {
         let mut result: u32 = 0;
         for i in 0..32 {
             // Check if the current bit in b is set
@@ -249,7 +245,6 @@ impl Element {
         }
         result
     }
-
 
     fn poly_degree(poly: u32) -> u32 {
         32 - poly.leading_zeros()
@@ -262,8 +257,8 @@ impl Element {
 
         while Self::poly_degree(a) >= deg_b {
             let shift = Self::poly_degree(a) - deg_b;
-            quotient ^= 1 << shift; 
-            a ^= b << shift;        
+            quotient ^= 1 << shift;
+            a ^= b << shift;
         }
         (quotient, a)
     }
@@ -271,7 +266,6 @@ impl Element {
     /// Compute the inverse of this field element. Panics if zero.
     // It computies the inverse using Extended Euclidean Algorithm
     fn inverse(self) -> Element {
-
         if self.is_zero() {
             panic!("Cannot invert 0");
         }
@@ -284,7 +278,7 @@ impl Element {
 
         let mut a: u32 = SHIFTABLE_EXT_POLY;
         let mut b: u16 = self.into_standard();
-        
+
         while b != 0 {
             // Perform division a / b
             let (quotient, remainder) = Self::poly_divmod(a, b as u32).into();
@@ -305,9 +299,7 @@ impl Element {
 
         //We know that t0 has degree 16 because it is in the field
         Element::reduce_from_poly(t0)
-            
     }
-
 }
 
 #[cfg(test)]
@@ -315,99 +307,101 @@ mod tests {
     use super::*;
     use quickcheck::Arbitrary;
 
-
     #[test]
     fn test_convert_from_cantor_works() {
         //1 x 1 = 1
-        let a = Element([1,0]);
-        let a_standard :u16 = 1;
-        let b = Element([2,0]);
-        let b_standard :u16 = CANTOR_BASIS[1];
+        let a = Element([1, 0]);
+        let a_standard: u16 = 1;
+        let b = Element([2, 0]);
+        let b_standard: u16 = CANTOR_BASIS[1];
 
         assert_eq!(a.into_standard(), a_standard);
         assert_eq!(b.into_standard(), b_standard);
-        assert_eq!((a+b).into_standard(), a_standard^b_standard);
+        assert_eq!((a + b).into_standard(), a_standard ^ b_standard);
     }
 
     #[test]
     fn test_convert_from_standard_works() {
         //1 x 1 = 1
-        let a = Element([1,0]);
-        let a_standard :u16 = 1;
-        let b = Element([2,0]);
-        let b_standard :u16 = CANTOR_BASIS[1];
+        let a = Element([1, 0]);
+        let a_standard: u16 = 1;
+        let b = Element([2, 0]);
+        let b_standard: u16 = CANTOR_BASIS[1];
 
         assert_eq!(Element::from_standard(a_standard), a);
         assert_eq!(Element::from_standard(b_standard), b);
-        assert_eq!(Element::from_standard(a_standard ^ b_standard), a+b);
-
-
+        assert_eq!(Element::from_standard(a_standard ^ b_standard), a + b);
     }
 
     #[test]
     fn test_basis_conversion_round_trip_works() {
-        let a : Element = CANTOR_BASIS[1].into();
+        let a: Element = CANTOR_BASIS[1].into();
         assert_eq!(Element::from_standard(a.into_standard()), a);
     }
 
     #[test]
     fn reduce_from_poly_works() {
-        let a_standard :u16 = 1;
-        let a = Element([1,0]);
+        let a_standard: u16 = 1;
+        let a = Element([1, 0]);
 
         assert_eq!(Element::reduce_from_poly(a_standard as u32), a);
     }
-        
+
     #[test]
     fn test_known_mul() {
         //1 x 1 = 1
-        let a = Element([1,0]);
-        let b = Element([1,0]);
-        let c = Element([1,0]);
+        let a = Element([1, 0]);
+        let b = Element([1, 0]);
+        let c = Element([1, 0]);
 
         assert_eq!(a * b, c);
 
         let a: u16 = 2;
 
-        assert_eq!(Element::from_standard(a)*Element::from_standard(a), Element::from_standard(a*a));
+        assert_eq!(
+            Element::from_standard(a) * Element::from_standard(a),
+            Element::from_standard(a * a)
+        );
 
-        let a = Element([2,0]);
-        let asqrt = Element([3,0]);
-        
-        assert_eq!(a *a, asqrt);
+        let a = Element([2, 0]);
+        let asqrt = Element([3, 0]);
+
+        assert_eq!(a * a, asqrt);
     }
-
 
     #[test]
     fn poly_divmod_works() {
-        let one : u32 = 1;
+        let one: u32 = 1;
         assert_eq!(Element::poly_divmod(one, one), (1, 0));
-                let one : u32 = 1;
-        assert_eq!(Element::poly_divmod(SHIFTABLE_EXT_POLY, one), (SHIFTABLE_EXT_POLY, 0));
-        
-        let gen : u32 = 2;
-        let (q, r) = Element::poly_divmod(SHIFTABLE_EXT_POLY, gen);
-        
-        assert_eq!(SHIFTABLE_EXT_POLY, Element::poly_mul_u32_no_carry(q,gen) ^ r);
+        let one: u32 = 1;
+        assert_eq!(
+            Element::poly_divmod(SHIFTABLE_EXT_POLY, one),
+            (SHIFTABLE_EXT_POLY, 0)
+        );
 
+        let gen: u32 = 2;
+        let (q, r) = Element::poly_divmod(SHIFTABLE_EXT_POLY, gen);
+
+        assert_eq!(
+            SHIFTABLE_EXT_POLY,
+            Element::poly_mul_u32_no_carry(q, gen) ^ r
+        );
     }
 
     #[test]
     fn test_known_inverse() {
-        let one = Element([1,0]);
+        let one = Element([1, 0]);
         assert_eq!(one.inverse(), one);
 
-        
         let a = Element::from_standard(2);
-        
+
         //sage: 1/a
         //a^15 + a^4 + a^2 + a
         let a_inv = 32768 + 16 + 4 + 2;
         assert_eq!(a.inverse(), Element::from_standard(a_inv));
         assert_eq!(a.inverse() * a, one);
-
     }
-    
+
     impl Arbitrary for Element {
         fn arbitrary<G: quickcheck::Gen>(gen: &mut G) -> Self {
             let a = u8::arbitrary(gen);
