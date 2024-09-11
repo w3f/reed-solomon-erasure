@@ -261,7 +261,14 @@ static ALWAYS_INLINE CONST_FUNCTION v set1_epi8_v(const uint8_t c) {
         return result;
 }
 
-static ALWAYS_INLINE CONST_FUNCTION v srli_epi64_v(const v in, const unsigned int n) {
+static ALWAYS_INLINE CONST_FUNCTION v srli_epi64_v(const v in /*, const unsigned int n*/) {
+        // TODO: Hard code n to 4 to avoid build issues on M1 Macs (the
+        //       `USE_ARM_NEON` path below) where apple clang is failing to
+        //       recognize the constant `n`.
+        //
+        //       See https://github.com/rust-rse/reed-solomon-erasure/pull/92
+        //
+        #define n 4
 #if USE_AVX512
         const v512 result = { .m512i = _mm512_srli_epi64(in.m512i, n) };
 #elif USE_AVX2
@@ -281,7 +288,7 @@ static ALWAYS_INLINE CONST_FUNCTION v srli_epi64_v(const v in, const unsigned in
         const v128 result = { .u64 = { in.u64[0] >> n,
                                        in.u64[1] >> n } };
 #endif
-
+        #undef n
         return result;
 }
 
@@ -420,7 +427,7 @@ TEXT ·galMulSSSE3Xor(SB), 7, $0
     MOVOU  (DX), X7             // X7: high
     MOVQ    $15, BX             // BX: low mask
     MOVQ    BX, X8
-    PXOR    X5, X5    
+    PXOR    X5, X5
     MOVQ    in+48(FP),SI        // R11: &in
     MOVQ    in_len+56(FP),R9    // R9: len(in)
     MOVQ    out+72(FP), DX      // DX: &out
@@ -443,7 +450,7 @@ loopback_xor:
     PXOR    X4, X3   // X3: Result xor existing out
     MOVOU   X3, (DX) // Store
     ADDQ    $16, SI  // in+=16
-    ADDQ    $16, DX  // out+=16 
+    ADDQ    $16, DX  // out+=16
     SUBQ    $1, R9
     JNZ     loopback_xor
 done_xor:
@@ -457,7 +464,7 @@ TEXT ·galMulSSSE3(SB), 7, $0
     MOVOU   (DX), X7            // X7: high
     MOVQ    $15, BX             // BX: low mask
     MOVQ    BX, X8
-    PXOR    X5, X5    
+    PXOR    X5, X5
     MOVQ    in+48(FP),SI        // R11: &in
     MOVQ    in_len+56(FP),R9    // R9: len(in)
     MOVQ    out+72(FP), DX      // DX: &out
@@ -478,7 +485,7 @@ loopback:
     PXOR    X2, X3   // X3: Result
     MOVOU   X3, (DX) // Store
     ADDQ    $16, SI  // in+=16
-    ADDQ    $16, DX  // out+=16 
+    ADDQ    $16, DX  // out+=16
     SUBQ    $1, R9
     JNZ     loopback
 done:
@@ -495,7 +502,7 @@ static ALWAYS_INLINE v reedsolomon_gal_mul_v(
         const v in_x,
         const v old) {
         const v low_input = and_v(in_x, low_mask_unpacked),
-                in_x_shifted = srli_epi64_v(in_x, 4),
+                in_x_shifted = srli_epi64_v(in_x /*, 4*/),
                 high_input = and_v(in_x_shifted, low_mask_unpacked),
 
                 mul_low_part = shuffle_epi8_v(low_vector, low_input),

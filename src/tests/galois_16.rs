@@ -1,4 +1,9 @@
-use super::{fill_random, option_shards_into_shards, shards_into_option_shards, Minimum_data, Minimum_parity};
+extern crate alloc;
+
+use alloc::vec;
+use alloc::vec::Vec;
+
+use super::{fill_random, option_shards_into_shards, shards_into_option_shards};
 use crate::galois_16::ReedSolomon;
 
 macro_rules! make_random_shards {

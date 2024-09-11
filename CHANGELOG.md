@@ -1,3 +1,28 @@
+## 6.0.0
+- Use LruCache instead of InversionTree for caching data decode matrices
+  - See [PR #104](https://github.com/rust-rse/reed-solomon-erasure/pull/104)
+- Minor code duplication
+  - See [PR #102](https://github.com/rust-rse/reed-solomon-erasure/pull/102)
+- Dependencies update
+  - Updated `smallvec` from `0.6.1` to `1.8.0`
+
+## 5.0.3
+- Fixed cross build bug for aarch64 with simd-accel
+  - See [PR #100](https://github.com/rust-rse/reed-solomon-erasure/pull/100)
+
+## 5.0.2
+* Add support for `RUST_REED_SOLOMON_ERASURE_ARCH` environment variable and stop using `native` architecture for SIMD code
+  - See [PR #98](https://github.com/rust-rse/reed-solomon-erasure/pull/98)
+
+## 5.0.1
+- The `simd-accel` feature now builds on M1 Macs
+  - See [PR #92](https://github.com/rust-rse/reed-solomon-erasure/pull/92)
+- Minor code cleanup
+
+## 5.0.0
+- Merged several PRs
+- Not fully reviewed as I am no longer maintaining this crate
+
 ## 4.0.2
 - Updated build.rs to respect RUSTFLAGS's target-cpu if available
   - See [PR #75](https://github.com/darrenldl/reed-solomon-erasure/pull/75)

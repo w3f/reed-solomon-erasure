@@ -32,12 +32,17 @@ reed-solomon-erasure = "4.0"
 or the following for the version which tries to utilise SIMD
 ```toml
 [dependencies]
-reed-solomon-erasure = { version = "4.0", features = "simd-accel" }
+reed-solomon-erasure = { version = "4.0", features = [ "simd-accel" ] }
 ```
 and the following to your crate root
 ```rust
 extern crate reed_solomon_erasure;
 ```
+
+NOTE: `simd-accel` is tuned for Haswell+ processors on x86-64 and not in any way for other architectures, set
+environment variable `RUST_REED_SOLOMON_ERASURE_ARCH` during build to force compilation of C code for specific architecture (`-march` flag in
+GCC/Clang). Even on x86-64 you can achieve better performance by setting it to `native`, but it will stop running on
+older CPUs, YMMV.
 
 ## Example
 ```rust
@@ -55,7 +60,7 @@ fn main () {
         [0, 1,  2,  3],
         [4, 5,  6,  7],
         [8, 9, 10, 11],
-        [0, 0,  0,  0], // last 2 rows are parity hards
+        [0, 0,  0,  0], // last 2 rows are parity shards
         [0, 0,  0,  0]
     );
 
@@ -83,10 +88,7 @@ fn main () {
 
 ## Benchmark it yourself
 You can test performance under different configurations quickly (e.g. data parity shards ratio, parallel parameters)
-by cloning this repo: https://github.com/darrenldl/rse-benchmark
-
-`rse-benchmark` contains a copy of this library (usually a fully functional dev version), so you only need to adjust `main.rs`
-then do `cargo run --release` to start the benchmark.
+with standard `cargo bench` command.
 
 ## Performance
 Version `1.X.X`, `2.0.0` do not utilise SIMD.
@@ -102,6 +104,9 @@ Below shows the result of one of the test configurations, other configurations s
 | 10x2x1M | ~7800MB/s |~4500MB/s | ~1000MB/s | ~240MB/s |
 
 Versions `>= 4.0.0` have not been benchmarked thoroughly yet
+
+## Benchmarking
+You can run benchmarks via `cargo bench`. To enable simd acceleration during benchmarks use `cargo bench --features simd-accel`.
 
 ## Changelog
 [Changelog](CHANGELOG.md)
@@ -129,6 +134,9 @@ Many thanks to [@sakridge](https://github.com/sakridge) for adding support for A
 
 #### build.rs improvements
 Many thanks to [@ryoqun](https://github.com/ryoqun) for improving the usability of the library in the context of cross-compilation (see [PR #75](https://github.com/darrenldl/reed-solomon-erasure/pull/75))
+
+#### no_std support
+Many thanks to Nazar Mokrynskyi [@nazar-pc](https://github.com/nazar-pc) for adding `no_std` support (see [PR #90](https://github.com/darrenldl/reed-solomon-erasure/pull/90))
 
 #### Testers
 Many thanks to the following people for testing and benchmarking on various platforms
