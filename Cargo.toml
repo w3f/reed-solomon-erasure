@@ -52,6 +52,10 @@ quickcheck = "0.9"
 # Scientific benchmarking
 criterion = { version = "0.4.0", features = ["html_reports"] }
 
+
+# for the example comparing with rs-simd
+hex = "0.4"
+
 [build-dependencies]
 cc = { version = "1.0", optional = true }
 
