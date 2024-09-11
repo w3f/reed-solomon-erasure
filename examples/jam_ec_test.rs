@@ -34,8 +34,8 @@ fn gav_test() {
             hex::encode(cur_shard_erasure),
             hex::encode(cur_shard_simd)
         );
-        //assert_eq!(cur_shard_erasure[0], cur_shard_simd[0]);
-        //assert_eq!(cur_shard_erasure[1], cur_shard_simd[1]);
+        assert_eq!(cur_shard_erasure[0], cur_shard_simd[0]);
+        assert_eq!(cur_shard_erasure[1], cur_shard_simd[1]);
     }
 }
 fn replicating_sage_test() {
